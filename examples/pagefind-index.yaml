@@ -1,0 +1,95 @@
+files:
+  output: docs/index
+  source: docs
+  include:
+    - '**/*.htm'
+    - '**/*.html'
+  exclude:
+    - 'tags/**'
+    - 'en/tags/**'
+    - 'post/page/*/**'
+    - 'en/post/page/*/**'
+    - 'post/202*/*/**'
+    - 'en/post/202*/*/**'
+    - 'search/**'
+    - 'en/search/**'
+    - 'tagline/**'
+    - 'en/tagline/**'
+    - 'cm/**'
+    - 'en/cm/**'
+    - 'applications/**'
+    - 'en/applications/**'
+    - 'meta/**'
+    - 'en/meta/**'
+    - 'privacy/**'
+    - 'en/privacy/**'
+    - '404.html'
+    - 'post/**/article.html'
+    - 'en/post/**/article.html'
+    - 'art-collection/**'
+    - 'en/art-collection/**'
+content:
+  ignore:
+    - "<meta http-equiv=\"refresh\" content=\"0; url="
+index:
+# Tagging attributes
+  body:
+    - .content-container
+  ignore:
+    - header.header
+    - footer.footer: all
+    - script: all
+    - "div.menu": all
+  weight:
+    - "h1": 7.0
+    - "h2": 6.0
+    - "h3": 5.0
+    - "a[data-wikidata-entity]": 5.0
+    - "h4": 4.0
+    - "h5": 3.0
+    - "h6": 2.0
+# Index fields
+  meta:
+    author: 'meta[name="author"]'
+    wikidata:
+      - "a[data-wikidata-entity]": "[data-wikidata-entity]"
+    variants:
+      - "a[data-wikidata-entity]":
+          function: variants
+          args:
+            lang: "{lang}"
+    title:
+      - h1.post-title
+      - ".section-head h1.section-head-title"
+    date:
+      - ".date time": "[datetime]"
+    selector:
+      - "p, h1, h2":
+          function: generate_css_selector
+    image:
+      - ".gallery .gallery-image.caption": "[href]"
+      - "figure img": "[src]"
+  sort:
+    date:
+      - ".date time": "[datetime]"
+  filter:
+    type:
+      - "a[data-wikidata-entity]":
+          function: type
+          args:
+            lang: "{lang}"
+    tag:
+      - ".meta .tags a":
+          function: extract
+          args:
+            pattern: "s/#(.*)/$1/g"
+    section:
+      - body:
+          function: extract
+          args:
+            attribute: "class"
+            pattern: "s/.*section-(.[^ ]*).*/$1/g"
+            ignore_unchanged: "true"
+
+  index-attrs:
+    a: "[data-wikidata-entity]"

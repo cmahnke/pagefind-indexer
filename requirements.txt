@@ -1,0 +1,5 @@
+pagefind[extended]
+beautifulsoup4
+requests
+requests-ratelimiter
+PyYAML
