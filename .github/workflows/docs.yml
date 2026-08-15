@@ -35,7 +35,7 @@ jobs:
             mkdir -p "$(dirname "$out_path")"
             pandoc "$file" -s -o "$out_path" --metadata title="$(basename "${file%.md}")"
           done
-          mv ./public/README.html index.html
+          mv ./public/README.html ./public/index.html
 
       - name: Deploy site
         uses: peaceiris/actions-gh-pages@v4.1.0
