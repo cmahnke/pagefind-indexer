@@ -20,10 +20,17 @@ classifiers = [
 dependencies = [
     "PyYAML>=6.0",
     "requests>=2.31.0",
-    "requests-ratelimiter>=0.4.0",
-    "beautifulsoup4>=4.12.0",
-    "pagefind>=1.2.0",
+    "requests-ratelimiter>=0.6.0",
+    "beautifulsoup4>=4.13.1",
+    "pagefind>=1.5.0",
 ]
+license = "AGPL-3.0-or-later"
+license-files = ["LICEN[CS]E.*"]
+
+[project.urls]
+#Documentation = "https://cmahnke.github.io/pagefind-indexer"
+Repository = "https://github.com/cmahnke/pagefind-indexer.git"
+Issues = "https://github.com/cmahnke/pagefind-indexer/issues"
 
 [project.scripts]
 pagefind-indexer = "indexer.pagefind_indexer:main"
