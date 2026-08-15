@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pagefind-indexer"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Christian Mahnke", email="pagefind@christianmahnke.de" },
 ]
@@ -30,3 +30,4 @@ pagefind-indexer = "indexer.pagefind_indexer:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["indexer*"]

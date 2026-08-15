@@ -7,12 +7,15 @@ import sys
 import re
 import argparse
 import pathlib
-import requests
-from requests_ratelimiter import LimiterSession
+import difflib
+
+# Custom Wikidata enrichment module
+from . import wikidata
+from .wikidata import type, variants
+
 from pagefind.index import PagefindIndex, IndexConfig
 from bs4.element import Tag
 from bs4 import BeautifulSoup
-import difflib
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 log = logging.getLogger(__name__)
@@ -20,13 +23,6 @@ log = logging.getLogger(__name__)
 default_include = ["**/*.htm", "**/*.html"]
 data_attribute_prefix = "data-pagefind-"
 DEFAULT_LANG = "de"
-WIKIDATA_ENDPOINT = "https://query.wikidata.org/sparql"
-WIKIDATA_HEADERS = {
-    "Accept": "application/sparql-results+json",
-    "User-Agent": "PagefindExperimentalEnrich/0.0.1 (https://christianmahnke.de/) requests-python"
-}
-
-wikidata_cache = {}
 
 class Page:
     def __init__(self, relative_path, filepath, content = None):
@@ -43,156 +39,20 @@ class Page:
 
 ## Helper functions for index enrichment
 
-def get_labels (qid, lang):
-    if qid in wikidata_cache:
-        if lang in wikidata_cache[qid] and "labels" in wikidata_cache[qid][lang]:
-            return wikidata_cache[qid][lang]["labels"]
-        else:
-            wikidata_cache[qid][lang] = {}
-    else:
-        wikidata_cache[qid] = {}
-        wikidata_cache[qid][lang] = {}
-
-    uri = f"http://www.wikidata.org/entity/{qid}"
-    query = f"""
-    SELECT DISTINCT ?altLabel
-    WHERE {{
-      VALUES ?object {{ <{uri}> }}
-
-      OPTIONAL {{
-        ?object <http://www.w3.org/2000/01/rdf-schema#label> ?label .
-        FILTER (lang(?label) = "{lang}")
-      }}
-
-      {{
-        ?object <http://www.w3.org/2004/02/skos/core#altLabel> ?altLabel .
-        FILTER (lang(?altLabel) = "{lang}" || lang(?altLabel) = "")
-      }}
-      UNION
-      {{
-        ?object <http://www.w3.org/2004/02/skos/core#altLabel> ?altLabel .
-        FILTER (!langMatches(lang(?altLabel), "*"))
-      }}
-    }}
+def get_redirect_url(html_content):
     """
-
-    try:
-        log.debug(f"Querying Wikidata for labels of {qid} in language '{lang}'")
-        response = requests.get(WIKIDATA_ENDPOINT, params={"query": query}, headers=WIKIDATA_HEADERS)
-        response.raise_for_status()
-
-        data = response.json()
-        alt_labels = []
-        for binding in data["results"]["bindings"]:
-            if "altLabel" in binding:
-                alt_labels.append(binding["altLabel"]["value"])
-
-        wikidata_cache[qid][lang]["labels"] = ";".join(alt_labels)
-        return wikidata_cache[qid][lang]["labels"]
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error querying Wikidata: {e}")
-        return ""
-    except json.JSONDecodeError:
-        print("Error decoding JSON response from Wikidata.")
-        return ""
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return ""
-
-
-def get_base_type(qid, lang = 'en', default_label = None):
-    if qid in wikidata_cache:
-        if lang in wikidata_cache[qid] and "base_type" in wikidata_cache[qid][lang]:
-            return wikidata_cache[qid][lang]["base_type"]
-        else:
-            wikidata_cache[qid][lang] = {}
-    else:
-        wikidata_cache[qid] = {}
-        wikidata_cache[qid][lang] = {}
-
-    predefined_base_qids = [
-        'Q5',          # Human (Person)
-        'Q729',        # Animal
-        'Q43229',      # Organization (Company, NGO, Government agency, etc.)
-        'Q14897293',   # Fictional entity
-        'Q16566827',   # Building (Structure, architectural work)
-        'Q7397',       # Software
-        'Q39670',      # Computer hardware
-        'Q11446',      # Ship
-        'Q11439',      # Aircraft (Plane, helicopter, etc.)
-        'Q867018',     # Handicraft
-        'Q11424',      # Film (Movie)
-        'Q3305213',    # Painting
-        'Q2431196',    # Musical work (Song, symphony, etc.)
-        'Q1107',       # Sculpture
-        'Q4985654',    # Video game
-        'Q12645',      # Photograph
-        'Q47461344',   # Literary work (Books, poems, etc.)
-        'Q838948',     # Work of art (Broader than specific arts like Painting, Sculpture)
-        'Q47154546',   # Creative work (Very broad, encompasses all artistic/literary works)
-        'Q6671777',    # Structure
-
-        'Q618123',     # Geographical feature (Mountain, river, lake, etc.)
-        'Q56061',      # Geographic location (Place / Location - broader than geographical feature)
-        'Q2695280',    # Technique (Specific procedure/skill, e.g., surgical technique)
-        'Q1182586',    # Method (Systematic procedure, technique)
-        'Q1190554',    # Event (Historical event, sports event, festival, etc.)
-        'Q712534',     # Natural phenomenon (Earthquake, volcano, weather event)
-        #'Q151885',     # Concept (Abstract ideas - use with caution, can be very broad)
-    ]
-
-    values_clause = " ".join([f"wd:{q}" for q in predefined_base_qids])
-
-    sparql_query = f"""
-    SELECT ?baseClass ?baseClassLabel ?directClass ?directClassLabel WHERE {{
-      VALUES ?targetItem {{ wd:{qid} }}
-
-      ?targetItem wdt:P31 ?directClass.
-      ?targetItem wdt:P31/wdt:P279* ?baseClass.
-
-      VALUES ?baseClassInList {{ {values_clause} }}
-      FILTER (?baseClass = ?baseClassInList)
-
-      SERVICE wikibase:label {{
-        bd:serviceParam wikibase:language "{lang},en".
-        ?baseClass rdfs:label ?baseClassLabel.
-        ?directClass rdfs:label ?directClassLabel.
-      }}
-    }}
-    LIMIT 1
+    Extracts the redirect URL from a meta refresh tag if present.
     """
-
-    try:
-        response = session.get(WIKIDATA_ENDPOINT, headers=WIKIDATA_HEADERS, params={'query': sparql_query})
-        response.raise_for_status()
-        data = response.json()
-
-        results = data.get('results', {}).get('bindings', [])
-
-        if results:
-            base_class_info = results[0]
-            base_class_qid = base_class_info['baseClass']['value'].split('/')[-1]
-            base_class_label = base_class_info['baseClassLabel']['value']
-
-            if default_label is not None and base_class_label == "":
-                base_class_label = default_label
-
-            wikidata_cache[qid][lang]["base_type"] = {'qid': base_class_qid, 'label': base_class_label}
-            return wikidata_cache[qid][lang]["base_type"]
-
-        else:
-            return None # No base class found from the predefined list
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error making request to Wikidata for QID {qid}: {e}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON response from Wikidata for QID {qid}: {e}")
-        return None
-    except Exception as e:
-        print(f"An unexpected error occurred for QID {qid}: {e}")
-        return None
+    soup = BeautifulSoup(html_content, 'html.parser')
+    meta_refresh = soup.find('meta', attrs={'http-equiv': re.compile(r'^refresh$', re.I)})
+    if meta_refresh and meta_refresh.has_attr('content'):
+        content = meta_refresh['content']
+        # Matches url=... with or without quotes
+        match = re.search(r'url\s*=\s*(?:["\'](.*?)["\']|([^;]+))', content, re.I)
+        if match:
+            url = match.group(1) if match.group(1) is not None else match.group(2).strip()
+            return url
+    return None
 
 # See https://searchfox.org/mozilla-central/source/devtools/shared/inspector/css-logic.js arround line 634
 def generate_css_selector(node):
@@ -214,7 +74,7 @@ def generate_css_selector(node):
             path_nodes.append(ancestor)
     path_nodes.append(node)
 
-    selector_parts: List[str] = []
+    selector_parts = []
 
     for i, current_node in enumerate(path_nodes):
         if not isinstance(current_node, Tag):
@@ -291,24 +151,6 @@ def extract(node, attribute = None, pattern = None, ignore_unchanged = False):
         replaced_text = text
     log.debug(f"Extracting node, attribute {attribute}, pattern {pattern}, result: '{text}'")
     return replaced_text
-
-def type(node, attribute="data-wikidata-entity", lang = "en"):
-    if attribute is None:
-        qid = node.text
-    else:
-        qid = node[attribute]
-    base = get_base_type(qid, lang)
-    if base is not None:
-        return base["label"]
-    log.info(f"Couldn't find base type of {qid}")
-    return ""
-
-def variants(node, attribute="data-wikidata-entity", lang = "en"):
-    if attribute is None:
-        qid = node.text
-    else:
-        qid = node[attribute]
-    return get_labels(qid, lang)
 
 def load_config(config_file):
     _, ext = os.path.splitext(config_file)
@@ -388,7 +230,7 @@ def preprocess_html_file(filepath, config):
             if isinstance(value_def, dict):
                 additional_attr = f"{data_attribute_prefix}{attr}-{field}"
                 if (additional_attr in element):
-                    raise Exception("Attribute {additional_attr} already exists!")
+                    raise Exception(f"Attribute {additional_attr} already exists!")
                 if "function" in value_def:
                     if "args" in value_def:
                         if ctx is not None:
@@ -401,7 +243,7 @@ def preprocess_html_file(filepath, config):
                             function_result = globals()[value_def["function"]](element, *args)
                         else:
                             function_result = globals()[value_def["function"]](element, args)
-                        log.debug(f"Called {value_def["function"]} with args {args}")
+                        log.debug(f"Called {value_def['function']} with args {args}")
                     else:
                         function_result = globals()[value_def["function"]](element)
 
@@ -526,7 +368,7 @@ def preprocess_html_file(filepath, config):
     log.debug(f"HTML after processing:\n{modified_html_content}")
     return modified_html_content
 
-async def index(contents, output_dir):
+async def index(contents, output_dir, url_handling="default"):
     async with PagefindIndex() as index:
         processed_files_count = 0
         for page in contents:
@@ -534,9 +376,18 @@ async def index(contents, output_dir):
             filepath = page.filepath
             content = page.first()
 
+            url = f"/{relative_path}"
+            if url_handling == "redirect":
+                redirect_url = get_redirect_url(content)
+                if redirect_url:
+                    log.debug(f"Using meta refresh URL '{redirect_url}' for {relative_path}")
+                    url = redirect_url
+                else:
+                    log.debug(f"No meta refresh URL found for {relative_path}, using default '{url}'")
+
             try:
                 await index.add_html_file(
-                    url=f"/{relative_path}",
+                    url=url,
                     content=content,
                     source_path=filepath
                 )
@@ -600,22 +451,28 @@ def main():
         exclude = config["files"]["exclude"]
 
     ignore = None
-    if ("ignore" in config["content"]):
+    if ("ignore" in config.get("content", {})):
         ignore = config["content"]["ignore"]
 
-    global session
-    session = LimiterSession(per_second=args.limit)
+    url_handling = config.get("url_handling", "default")
+    if url_handling not in ["default", "redirect"]:
+        log.warning(f"Unknown url_handling option '{url_handling}', falling back to 'default'")
+        url_handling = "default"
+
+    # Set Wikidata API rate limit via the module
+    wikidata.set_rate_limit(args.limit)
 
     log.info(f"Starting Pagefind indexing for '{source_dir}'...")
     log.info(f"Output directory: '{output_dir}'")
     log.info(f"Using configuration from: '{args.config}'")
+    log.info(f"URL handling strategy: '{url_handling}'")
 
     file_list = create_file_list(source_dir, include, exclude, ignore)
     index_config = config["index"]
     pages = []
     for relative_path, filepath in file_list.items():
         pages.append(Page(relative_path, filepath, preprocess_html_file(filepath, index_config)))
-    asyncio.run(index(pages, output_dir))
+    asyncio.run(index(pages, output_dir, url_handling))
 
 if __name__ == "__main__":
     try:
