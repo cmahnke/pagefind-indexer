@@ -31,3 +31,7 @@ pagefind-indexer = "indexer.pagefind_indexer:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["indexer*"]
+
+[tool.black]
+line-length = 180
+target-version = ['py313']

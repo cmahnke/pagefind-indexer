@@ -24,9 +24,10 @@ default_include = ["**/*.htm", "**/*.html"]
 data_attribute_prefix = "data-pagefind-"
 DEFAULT_LANG = "de"
 
+
 class Page:
-    def __init__(self, relative_path, filepath, content = None):
-        self.relative_path= relative_path
+    def __init__(self, relative_path, filepath, content=None):
+        self.relative_path = relative_path
         self.filepath = filepath
         if isinstance(content, list):
             self.contents = content
@@ -39,14 +40,15 @@ class Page:
 
 ## Helper functions for index enrichment
 
+
 def get_redirect_url(html_content):
     """
     Extracts the redirect URL from a meta refresh tag if present.
     """
-    soup = BeautifulSoup(html_content, 'html.parser')
-    meta_refresh = soup.find('meta', attrs={'http-equiv': re.compile(r'^refresh$', re.I)})
-    if meta_refresh and meta_refresh.has_attr('content'):
-        content = meta_refresh['content']
+    soup = BeautifulSoup(html_content, "html.parser")
+    meta_refresh = soup.find("meta", attrs={"http-equiv": re.compile(r"^refresh$", re.I)})
+    if meta_refresh and meta_refresh.has_attr("content"):
+        content = meta_refresh["content"]
         # Matches url=... with or without quotes
         match = re.search(r'url\s*=\s*(?:["\'](.*?)["\']|([^;]+))', content, re.I)
         if match:
@@ -54,12 +56,17 @@ def get_redirect_url(html_content):
             return url
     return None
 
+
 # See https://searchfox.org/mozilla-central/source/devtools/shared/inspector/css-logic.js arround line 634
 def generate_css_selector(node):
     def escape(selector):
         numeric_pattern = r"^(\d+).*$"
         if re.match(numeric_pattern, selector):
-            selector = re.sub(numeric_pattern, lambda m: "".join(list(map(lambda c: "\\" + str(ord(c)), list(m.group(1))))), selector)
+            selector = re.sub(
+                numeric_pattern,
+                lambda m: "".join(list(map(lambda c: "\\" + str(ord(c)), list(m.group(1))))),
+                selector,
+            )
         for k, v in [(".", "\\."), (":", "\\:")]:
             selector = selector.replace(k, v)
         return selector
@@ -70,7 +77,7 @@ def generate_css_selector(node):
     ancestors = node.find_parents()
     path_nodes = []
     for ancestor in reversed(ancestors):
-        if ancestor.name != '[document]':
+        if ancestor.name != "[document]":
             path_nodes.append(ancestor)
     path_nodes.append(node)
 
@@ -82,18 +89,15 @@ def generate_css_selector(node):
 
         part = current_node.name
 
-        if current_node.has_attr('id') and current_node['id']:
-            id = escape(current_node['id'])
+        if current_node.has_attr("id") and current_node["id"]:
+            id = escape(current_node["id"])
             part += f"#{id}"
-        elif current_node.has_attr('class') and current_node['class']:
-            classes = list(map(lambda e: escape(e), current_node['class']))
-            part += '.' + '.'.join(classes)
+        elif current_node.has_attr("class") and current_node["class"]:
+            classes = list(map(lambda e: escape(e), current_node["class"]))
+            part += "." + ".".join(classes)
 
-        if current_node.parent and current_node.name != 'html':
-            siblings_of_same_type = [
-                s for s in current_node.parent.children
-                if isinstance(s, Tag) and s.name == current_node.name
-            ]
+        if current_node.parent and current_node.name != "html":
+            siblings_of_same_type = [s for s in current_node.parent.children if isinstance(s, Tag) and s.name == current_node.name]
             if len(siblings_of_same_type) > 1:
                 try:
                     nth_index = siblings_of_same_type.index(current_node) + 1
@@ -115,29 +119,32 @@ def generate_css_selector(node):
             return None
     return None
 
+
 def sed_style_replace(string, pattern):
-    if not (pattern.startswith('s') and len(pattern) >= 6 and pattern.endswith('g')):
+    if not (pattern.startswith("s") and len(pattern) >= 6 and pattern.endswith("g")):
         raise Exception(f"Malformed {pattern}")
     sep = pattern[1]
     if pattern.count(sep) != 3:
         raise Exception(f"Not a valid pattern {pattern}")
     search, _, rest = pattern[2:].partition(sep)
     replace, _, rest = rest.partition(sep)
-    if not search or rest != 'g':
+    if not search or rest != "g":
         raise Exception(f"Not a valid pattern {pattern}")
     replace = replace.replace("$", "\\")
     return re.sub(search, replace, string, count=0, flags=re.MULTILINE)
 
+
 # Callable index enrichment functions
 
-def extract(node, attribute = None, pattern = None, ignore_unchanged = False):
+
+def extract(node, attribute=None, pattern=None, ignore_unchanged=False):
     if attribute is None:
         text = node.text
     elif attribute in node:
         text = node[attribute]
     else:
         log.warning(f"Atribute {attribute} not set on {node.name}")
-        text  = ""
+        text = ""
     # BeautifulSoup implements the magic by default antipattern: class attributes are returned as list without providing symetric way to work around this.
     # Like an accesor without parsing. There is a genral setting `multi_valued_attributes=None`
     if isinstance(text, list):
@@ -152,13 +159,14 @@ def extract(node, attribute = None, pattern = None, ignore_unchanged = False):
     log.debug(f"Extracting node, attribute {attribute}, pattern {pattern}, result: '{text}'")
     return replaced_text
 
+
 def load_config(config_file):
     _, ext = os.path.splitext(config_file)
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            if ext.lower() in ['.json', '.jsonc']:
+        with open(config_file, "r", encoding="utf-8") as f:
+            if ext.lower() in [".json", ".jsonc"]:
                 config = json.load(f)
-            elif ext.lower() in ['.yaml', '.yml']:
+            elif ext.lower() in [".yaml", ".yml"]:
                 config = yaml.safe_load(f)
             else:
                 print(f"Error: Configuration file '{config_file}' must be JSON or YAML.")
@@ -171,7 +179,8 @@ def load_config(config_file):
         print(f"Error parsing configuration file '{config_file}': {e}")
         return
 
-def create_file_list(source_dir, include, exclude = None, ignore = None):
+
+def create_file_list(source_dir, include, exclude=None, ignore=None):
     patterns = []
     if ignore is not None:
         if isinstance(ignore, str):
@@ -199,7 +208,7 @@ def create_file_list(source_dir, include, exclude = None, ignore = None):
             if not index:
                 continue
             if patterns:
-                with open(filepath, 'r', encoding='utf-8') as f:
+                with open(filepath, "r", encoding="utf-8") as f:
                     contents = f.read()
                     for pattern in patterns:
                         if pattern.search(contents):
@@ -213,23 +222,24 @@ def create_file_list(source_dir, include, exclude = None, ignore = None):
 
     return index_files
 
+
 def preprocess_html_file(filepath, config):
     def expand_args(args, ctx):
         if isinstance(args, dict):
-            return dict(map(lambda i: (i[0], i[1].format(**ctx)) , args.items()))
+            return dict(map(lambda i: (i[0], i[1].format(**ctx)), args.items()))
         elif isinstance(args, list):
             return list(map(lambda e: e.format(**ctx), args))
         else:
             return args.format(**ctx)
 
-    def add_meta(element, attr = "meta", field = "", field_def = None, ctx=None, skip_empty = False):
-        #if (any(map(content.__contains__, [",", "'", "\""]))):
+    def add_meta(element, attr="meta", field="", field_def=None, ctx=None, skip_empty=False):
+        # if (any(map(content.__contains__, [",", "'", "\""]))):
         #    log.warning(f"Unknown selector definition type for '{key}': {type(selectors_def)}. Skipping.")
         if isinstance(field_def, dict):
             value_def = list(field_def.values())[0]
             if isinstance(value_def, dict):
                 additional_attr = f"{data_attribute_prefix}{attr}-{field}"
-                if (additional_attr in element):
+                if additional_attr in element:
                     raise Exception(f"Attribute {additional_attr} already exists!")
                 if "function" in value_def:
                     if "args" in value_def:
@@ -292,24 +302,22 @@ def preprocess_html_file(filepath, config):
                 attr_val = value_def
             element[data_attribute_prefix + attr] = attr_val
 
-
-    with open(filepath, 'r', encoding='utf-8') as f:
-        soup = BeautifulSoup(f, 'html.parser')
-    #if logging.DEBUG >= log.level:
+    with open(filepath, "r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+    # if logging.DEBUG >= log.level:
     #    initial_html_content = str(soup)
     lang_tag = soup.select("html[lang]")
-    #if lang_tag is not None or len(lang_tag) >= 1 and "lang" in lang_tag[0]:
+    # if lang_tag is not None or len(lang_tag) >= 1 and "lang" in lang_tag[0]:
     try:
         lang = lang_tag[0]["lang"]
         log.info(f"Procesing {filepath}, language {lang}")
-    #else:
+    # else:
     except (IndexError, ValueError):
         log.warning(f"Lang tag not found for {filepath}, setting to {DEFAULT_LANG}")
         lang = DEFAULT_LANG
 
     for key, selectors_def in config.items():
         data_attribute_key = data_attribute_prefix + key
-
 
         if isinstance(selectors_def, str):
             selectors = [selectors_def]
@@ -337,7 +345,14 @@ def preprocess_html_file(filepath, config):
                             skip_empty = False
                             if key == "filter":
                                 skip_empty = True
-                            add_meta(element, key, sub_key, selector, {"lang": lang}, skip_empty)
+                            add_meta(
+                                element,
+                                key,
+                                sub_key,
+                                selector,
+                                {"lang": lang},
+                                skip_empty,
+                            )
             continue
         else:
             log.warning(f"Unknown selector definition type for '{key} and dict, maybe selectors need to be given as lsit?': {type(selectors_def)}. Skipping.")
@@ -361,12 +376,13 @@ def preprocess_html_file(filepath, config):
                         element[key] = ""
 
     modified_html_content = str(soup)
-    #if logging.DEBUG >= log.level:
+    # if logging.DEBUG >= log.level:
     #    result = difflib.unified_diff(initial_html_content, modified_html_content)
     #    diff = ''.join(map(str, result))
     #    log.debug(f"HTML after processing:\n{diff}")
     log.debug(f"HTML after processing:\n{modified_html_content}")
     return modified_html_content
+
 
 async def index(contents, output_dir, url_handling="default"):
     async with PagefindIndex() as index:
@@ -386,11 +402,7 @@ async def index(contents, output_dir, url_handling="default"):
                     log.debug(f"No meta refresh URL found for {relative_path}, using default '{url}'")
 
             try:
-                await index.add_html_file(
-                    url=url,
-                    content=content,
-                    source_path=filepath
-                )
+                await index.add_html_file(url=url, content=content, source_path=filepath)
                 processed_files_count += 1
 
             except Exception as e:
@@ -402,25 +414,71 @@ async def index(contents, output_dir, url_handling="default"):
         await index.write_files(output_path=output_dir)
         log.info("Pagefind indexing complete!")
 
+
 def main():
     if sys.version_info[0] < 3 or sys.version_info[1] < 13:
         raise Exception("Must be using Python 3.13")
 
-    parser = argparse.ArgumentParser(description='Index page', add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-s', '--source', type=pathlib.Path, help='The source directory containing HTML files to be indexed',)
-    parser.add_argument('-c', '--config', type=pathlib.Path, help='File containing configuration (JSON or YAML)', required=True)
-    parser.add_argument("-o", "--output", type=pathlib.Path, help="The directory where Pagefind will write its index files. Defaults to a 'pagefind' subdirectory within the source directory.")
-    parser.add_argument("-l", "--limit", type=int, help="The maximum number of requests per second", default=1)
-    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("-h", "--help", action="store_true", help="Show help")
+    parser = argparse.ArgumentParser(
+        description="Index page",
+        add_help=False,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    parser.add_argument(
+        "-s",
+        "--source",
+        type=pathlib.Path,
+        help="The source directory containing HTML files to be indexed",
+    )
+
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=pathlib.Path,
+        help="File containing configuration (JSON or YAML)",
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=pathlib.Path,
+        help="The directory where Pagefind will write its index files. " "Defaults to a 'pagefind' subdirectory within the source directory.",
+    )
+
+    parser.add_argument(
+        "-l",
+        "--limit",
+        type=int,
+        help="The maximum number of requests per second",
+        default=1,
+    )
+
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+
+    parser.add_argument(
+        "-h",
+        "--help",
+        action="store_true",
+        help="Show help",
+    )
+
     args = parser.parse_args()
 
-    if args.help:
-        parser.print_help()
+    # No args: print help and exit successfully.
+    # Help requested: print help and exit successfully.
+    if args.help or len(sys.argv) == 1:
+        parser.print_help(sys.stdout)
         sys.exit(0)
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+    # Now enforce --config manually, after help handling.
+    if args.config is None:
+        parser.error("the following arguments are required: -c/--config")
 
     config = load_config(args.config)
 
@@ -430,28 +488,28 @@ def main():
     if not "files" in config:
         raise Exception("No file section in config!")
 
-    if ("source" in config["files"]):
+    if "source" in config["files"]:
         source_dir = config["files"]["source"]
-    elif ("source" in args and args.source):
+    elif "source" in args and args.source:
         source_dir = args.source
 
-    if ("output" in config["files"]):
+    if "output" in config["files"]:
         output_dir = config["files"]["output"]
-    elif ("output" in args and args.output):
+    elif "output" in args and args.output:
         output_dir = args.output
 
     if output_dir is None:
         output_dir = os.path.join(source_dir, "pagefind")
 
     include = default_include
-    if ("include" in config["files"]):
+    if "include" in config["files"]:
         include = config["files"]["include"]
     exclude = None
-    if ("exclude" in config["files"]):
+    if "exclude" in config["files"]:
         exclude = config["files"]["exclude"]
 
     ignore = None
-    if ("ignore" in config.get("content", {})):
+    if "ignore" in config.get("content", {}):
         ignore = config["content"]["ignore"]
 
     url_handling = config.get("url_handling", "default")
@@ -473,6 +531,7 @@ def main():
     for relative_path, filepath in file_list.items():
         pages.append(Page(relative_path, filepath, preprocess_html_file(filepath, index_config)))
     asyncio.run(index(pages, output_dir, url_handling))
+
 
 if __name__ == "__main__":
     try:

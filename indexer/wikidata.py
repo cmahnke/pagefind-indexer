@@ -8,17 +8,19 @@ log = logging.getLogger(__name__)
 WIKIDATA_ENDPOINT = "https://query.wikidata.org/sparql"
 WIKIDATA_HEADERS = {
     "Accept": "application/sparql-results+json",
-    "User-Agent": "PagefindExperimentalEnrich/0.0.1 (https://christianmahnke.de/) requests-python"
+    "User-Agent": "PagefindExperimentalEnrich/0.0.1 (https://christianmahnke.de/) requests-python",
 }
 
 wikidata_cache = {}
 # Initialize with a default rate limit, can be overridden from the main script
 session = LimiterSession(per_second=1)
 
+
 def set_rate_limit(per_second):
     """Re-initialize the LimiterSession with a custom rate limit."""
     global session
     session = LimiterSession(per_second=per_second)
+
 
 def get_labels(qid, lang):
     if qid in wikidata_cache:
@@ -78,7 +80,7 @@ def get_labels(qid, lang):
         return ""
 
 
-def get_base_type(qid, lang='en', default_label=None):
+def get_base_type(qid, lang="en", default_label=None):
     if qid in wikidata_cache:
         if lang in wikidata_cache[qid] and "base_type" in wikidata_cache[qid][lang]:
             return wikidata_cache[qid][lang]["base_type"]
@@ -89,33 +91,32 @@ def get_base_type(qid, lang='en', default_label=None):
         wikidata_cache[qid][lang] = {}
 
     predefined_base_qids = [
-        'Q5',          # Human (Person)
-        'Q729',        # Animal
-        'Q43229',      # Organization (Company, NGO, Government agency, etc.)
-        'Q14897293',   # Fictional entity
-        'Q16566827',   # Building (Structure, architectural work)
-        'Q7397',       # Software
-        'Q39670',      # Computer hardware
-        'Q11446',      # Ship
-        'Q11439',      # Aircraft (Plane, helicopter, etc.)
-        'Q867018',     # Handicraft
-        'Q11424',      # Film (Movie)
-        'Q3305213',    # Painting
-        'Q2431196',    # Musical work (Song, symphony, etc.)
-        'Q1107',       # Sculpture
-        'Q4985654',    # Video game
-        'Q12645',      # Photograph
-        'Q47461344',   # Literary work (Books, poems, etc.)
-        'Q838948',     # Work of art (Broader than specific arts like Painting, Sculpture)
-        'Q47154546',   # Creative work (Very broad, encompasses all artistic/literary works)
-        'Q6671777',    # Structure
-
-        'Q618123',     # Geographical feature (Mountain, river, lake, etc.)
-        'Q56061',      # Geographic location (Place / Location - broader than geographical feature)
-        'Q2695280',    # Technique (Specific procedure/skill, e.g., surgical technique)
-        'Q1182586',    # Method (Systematic procedure, technique)
-        'Q1190554',    # Event (Historical event, sports event, festival, etc.)
-        'Q712534',     # Natural phenomenon (Earthquake, volcano, weather event)
+        "Q5",  # Human (Person)
+        "Q729",  # Animal
+        "Q43229",  # Organization (Company, NGO, Government agency, etc.)
+        "Q14897293",  # Fictional entity
+        "Q16566827",  # Building (Structure, architectural work)
+        "Q7397",  # Software
+        "Q39670",  # Computer hardware
+        "Q11446",  # Ship
+        "Q11439",  # Aircraft (Plane, helicopter, etc.)
+        "Q867018",  # Handicraft
+        "Q11424",  # Film (Movie)
+        "Q3305213",  # Painting
+        "Q2431196",  # Musical work (Song, symphony, etc.)
+        "Q1107",  # Sculpture
+        "Q4985654",  # Video game
+        "Q12645",  # Photograph
+        "Q47461344",  # Literary work (Books, poems, etc.)
+        "Q838948",  # Work of art (Broader than specific arts like Painting, Sculpture)
+        "Q47154546",  # Creative work (Very broad, encompasses all artistic/literary works)
+        "Q6671777",  # Structure
+        "Q618123",  # Geographical feature (Mountain, river, lake, etc.)
+        "Q56061",  # Geographic location (Place / Location - broader than geographical feature)
+        "Q2695280",  # Technique (Specific procedure/skill, e.g., surgical technique)
+        "Q1182586",  # Method (Systematic procedure, technique)
+        "Q1190554",  # Event (Historical event, sports event, festival, etc.)
+        "Q712534",  # Natural phenomenon (Earthquake, volcano, weather event)
         #'Q151885',     # Concept (Abstract ideas - use with caution, can be very broad)
     ]
 
@@ -141,25 +142,28 @@ def get_base_type(qid, lang='en', default_label=None):
     """
 
     try:
-        response = session.get(WIKIDATA_ENDPOINT, headers=WIKIDATA_HEADERS, params={'query': sparql_query})
+        response = session.get(WIKIDATA_ENDPOINT, headers=WIKIDATA_HEADERS, params={"query": sparql_query})
         response.raise_for_status()
         data = response.json()
 
-        results = data.get('results', {}).get('bindings', [])
+        results = data.get("results", {}).get("bindings", [])
 
         if results:
             base_class_info = results[0]
-            base_class_qid = base_class_info['baseClass']['value'].split('/')[-1]
-            base_class_label = base_class_info['baseClassLabel']['value']
+            base_class_qid = base_class_info["baseClass"]["value"].split("/")[-1]
+            base_class_label = base_class_info["baseClassLabel"]["value"]
 
             if default_label is not None and base_class_label == "":
                 base_class_label = default_label
 
-            wikidata_cache[qid][lang]["base_type"] = {'qid': base_class_qid, 'label': base_class_label}
+            wikidata_cache[qid][lang]["base_type"] = {
+                "qid": base_class_qid,
+                "label": base_class_label,
+            }
             return wikidata_cache[qid][lang]["base_type"]
 
         else:
-            return None # No base class found from the predefined list
+            return None  # No base class found from the predefined list
 
     except requests.exceptions.RequestException as e:
         print(f"Error making request to Wikidata for QID {qid}: {e}")
