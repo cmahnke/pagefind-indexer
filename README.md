@@ -4,7 +4,7 @@ External index configuration for pagefind
 ## Docs
 
 * [CLI Arguments](./docs/cli.md)
-* [Configuration Guide](./docs/(config.md)
+* [Configuration Guide](./docs/config.md)
 
 See also https://christianmahnke.de/en/post/configure-pagefind/
 
