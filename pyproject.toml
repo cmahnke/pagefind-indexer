@@ -28,7 +28,7 @@ license = "AGPL-3.0-or-later"
 license-files = ["LICEN[CS]E.*"]
 
 [project.urls]
-#Documentation = "https://cmahnke.github.io/pagefind-indexer"
+Documentation = "https://cmahnke.github.io/pagefind-indexer/"
 Repository = "https://github.com/cmahnke/pagefind-indexer.git"
 Issues = "https://github.com/cmahnke/pagefind-indexer/issues"
 
