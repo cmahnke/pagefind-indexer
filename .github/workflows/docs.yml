@@ -33,6 +33,7 @@ jobs:
             rel_path="${file#./}"
             out_path="public/${rel_path%.md}.html"
             mkdir -p "$(dirname "$out_path")"
+            sed -i 's/\.md/\.html/g' "$file"
             pandoc "$file" -s -o "$out_path" --metadata title="$(basename "${file%.md}")"
           done
           mv ./public/README.html ./public/index.html
