@@ -23,10 +23,15 @@ DEFAULT_LANG = "de"
 
 logging.TRACE = logging.DEBUG - 5
 logging.addLevelName(logging.TRACE, "TRACE")
+
+
 def trace(self, message, *args, **kwargs):
     if self.isEnabledFor(logging.TRACE):
-        self._log(levelNum, message, args, **kwargs)
+        self._log(logging.TRACE, message, args, **kwargs)
+
+
 setattr(logging.getLoggerClass(), "trace", trace)
+
 
 class Page:
     def __init__(self, relative_path, filepath, content=None):
@@ -461,7 +466,8 @@ def main():
     parser.add_argument(
         "-d",
         "--debug",
-        action="store_true",
+        action="count",
+        default=0,
         help="Enable debug logging",
     )
 
@@ -474,19 +480,28 @@ def main():
 
     args = parser.parse_args()
 
-    # No args: print help and exit successfully.
-    # Help requested: print help and exit successfully.
     if args.help or len(sys.argv) == 1:
         parser.print_help(sys.stdout)
         sys.exit(0)
 
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        force=True
-    )
+    log_level = logging.INFO
+
+    if args.debug > 1:
+        log_level = logging.TRACE
+        logging.getLogger("requests").setLevel(logging.DEBUG)
+        logging.getLogger("urllib3").setLevel(logging.DEBUG)
+        logging.getLogger("pagefind").setLevel(logging.DEBUG)
+    elif args.debug > 0:
+        log_level = logging.DEBUG
+
+    if args.debug <= 1:
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("pagefind").setLevel(logging.WARNING)
+        logging.basicConfig(level=log_level, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S", force=True)
+    else:
+        logging.basicConfig(level=log_level, format="%(asctime)s [%(name)s: %(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
 
     log = logging.getLogger(__name__)
 
