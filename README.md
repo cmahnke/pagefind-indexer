@@ -6,8 +6,15 @@ External index configuration for pagefind
 * [CLI Arguments](./docs/cli.md)
 * [Configuration Guide](./docs/config.md)
 
-See also https://christianmahnke.de/en/post/configure-pagefind/
+See also:
+* https://christianmahnke.de/en/post/configure-pagefind/
+* https://github.com/Pagefind/pagefind/discussions/821
 
+## Installation
+
+```
+pip install 'pagefind-indexer @ git+https://github.com/cmahnke/pagefind-indexer@0.0.2'
+```
 
 ## Roadmap
 
