@@ -17,13 +17,16 @@ from pagefind.index import PagefindIndex, IndexConfig
 from bs4.element import Tag
 from bs4 import BeautifulSoup
 
-logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
-log = logging.getLogger(__name__)
-
 default_include = ["**/*.htm", "**/*.html"]
 data_attribute_prefix = "data-pagefind-"
 DEFAULT_LANG = "de"
 
+logging.TRACE = logging.DEBUG - 5
+logging.addLevelName(logging.TRACE, "TRACE")
+def trace(self, message, *args, **kwargs):
+    if self.isEnabledFor(logging.TRACE):
+        self._log(levelNum, message, args, **kwargs)
+setattr(logging.getLoggerClass(), "trace", trace)
 
 class Page:
     def __init__(self, relative_path, filepath, content=None):
@@ -380,7 +383,7 @@ def preprocess_html_file(filepath, config):
     #    result = difflib.unified_diff(initial_html_content, modified_html_content)
     #    diff = ''.join(map(str, result))
     #    log.debug(f"HTML after processing:\n{diff}")
-    log.debug(f"HTML after processing:\n{modified_html_content}")
+    log.trace(f"HTML after processing:\n{modified_html_content}")
     return modified_html_content
 
 
@@ -416,6 +419,7 @@ async def index(contents, output_dir, url_handling="default"):
 
 
 def main():
+    global log
     if sys.version_info[0] < 3 or sys.version_info[1] < 13:
         raise Exception("Must be using Python 3.13")
 
@@ -476,7 +480,16 @@ def main():
         parser.print_help(sys.stdout)
         sys.exit(0)
 
-    # Now enforce --config manually, after help handling.
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        force=True
+    )
+
+    log = logging.getLogger(__name__)
+
     if args.config is None:
         parser.error("the following arguments are required: -c/--config")
 
