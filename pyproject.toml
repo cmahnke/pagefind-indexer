@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pagefind-indexer"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
   { name="Christian Mahnke", email="pagefind@christianmahnke.de" },
 ]
@@ -22,6 +22,7 @@ dependencies = [
     "requests>=2.31.0",
     "requests-ratelimiter>=0.6.0",
     "beautifulsoup4>=4.13.1",
+    "soupsieve>=2.5",
     "pagefind>=1.5.0",
 ]
 license = "AGPL-3.0-or-later"

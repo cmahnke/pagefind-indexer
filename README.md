@@ -13,9 +13,10 @@ See also:
 ## Installation
 
 ```
-pip install 'pagefind-indexer @ git+https://github.com/cmahnke/pagefind-indexer@0.0.2'
+pip install 'pagefind-indexer @ git+https://github.com/cmahnke/pagefind-indexer@0.0.3'
 ```
 
 ## Roadmap
 
+* Generate JSON definition for types and sections.
 * Convert to Typescript, to be able to define callbacks for further processing in the config file
