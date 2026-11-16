@@ -43,6 +43,22 @@ class Page:
         return self.contents[0]
 
 
+def get_redirect_url(html_content):
+    """
+    Extracts the redirect URL from a meta refresh tag if present.
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    meta_refresh = soup.find("meta", attrs={"http-equiv": re.compile(r"^refresh$", re.I)})
+    if meta_refresh and meta_refresh.has_attr("content"):
+        content = meta_refresh["content"]
+        # Matches url=... with or without quotes
+        match = re.search(r'url\s*=\s*(?:["\'](.*?)["\']|([^;]+))', content, re.I)
+        if match:
+            url = match.group(1) if match.group(1) is not None else match.group(2).strip()
+            return url
+    return None
+
+
 ## Helper functions for index enrichment
 
 def get_labels (qid, lang):
@@ -543,7 +559,7 @@ def preprocess_html_file(filepath, config):
     log.debug(f"HTML after processing:\n{modified_html_content}")
     return modified_html_content
 
-async def index(contents, output_dir):
+async def index(contents, output_dir, url_handling = "default"):
     async with PagefindIndex() as index:
         processed_files_count = 0
         for page in contents:
@@ -551,12 +567,21 @@ async def index(contents, output_dir):
             filepath = page.filepath
             content = page.first()
 
+            url = f"/{relative_path}"
+            if url_handling == "redirect":
+                redirect_url = get_redirect_url(content)
+                if redirect_url:
+                    log.debug(f"Using meta refresh URL '{redirect_url}' for {relative_path}")
+                    url = redirect_url
+                else:
+                    log.debug(f"No meta refresh URL found for {relative_path}, using default '{url}'")
+            # Use the canonical form of internal URLs, GitHub Pages (and most servers)
+            # serve 'index.html' files without the file name
+            if url.endswith("/index.html"):
+                url = url[:-len("index.html")]
+
             try:
-                await index.add_html_file(
-                    url=f"/{relative_path}",
-                    content=content,
-                    source_path=filepath
-                )
+                await index.add_html_file(url=url, content=content, source_path=filepath)
                 processed_files_count += 1
 
             except Exception as e:
@@ -620,12 +645,18 @@ def main():
     if ("ignore" in config["content"]):
         ignore = config["content"]["ignore"]
 
+    url_handling = config.get("url_handling", "default")
+    if url_handling not in ["default", "redirect"]:
+        log.warning(f"Unknown url_handling option '{url_handling}', falling back to 'default'")
+        url_handling = "default"
+
     global session
     session = LimiterSession(per_second=args.limit)
 
     log.info(f"Starting Pagefind indexing for '{source_dir}'...")
     log.info(f"Output directory: '{output_dir}'")
     log.info(f"Using configuration from: '{args.config}'")
+    log.info(f"URL handling strategy: '{url_handling}'")
 
     file_list = create_file_list(source_dir, include, exclude, ignore)
     index_config = config["index"]
@@ -635,7 +666,7 @@ def main():
             pages.append(Page(relative_path, filepath, preprocess_html_file(filepath, index_config)))
         except Exception as e:
             log.error(f"Error preprocessing file {filepath}: {e}")
-    asyncio.run(index(pages, output_dir))
+    asyncio.run(index(pages, output_dir, url_handling))
 
 if __name__ == "__main__":
     try:
