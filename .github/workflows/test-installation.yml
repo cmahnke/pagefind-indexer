@@ -60,10 +60,10 @@ jobs:
       - name: Check CLI entry point from a non-source directory
         shell: bash
         run: |
-          pagefind-indexer
+          pagefind-indexer --help
 
       - name: Check installed imports from a non-source directory
         shell: bash
         run: |
           cd /
-          pagefind-indexer
+          pagefind-indexer --help

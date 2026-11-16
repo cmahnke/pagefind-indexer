@@ -603,12 +603,8 @@ def main():
     parser.add_argument("-o", "--output", type=pathlib.Path, help="The directory where Pagefind will write its index files. Defaults to a 'pagefind' subdirectory within the source directory.")
     parser.add_argument("-l", "--limit", type=int, help="The maximum number of requests per second", default=1)
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("-h", "--help", action="store_true", help="Show help")
+    parser.add_argument("-h", "--help", action="help", help="Show help")
     args = parser.parse_args()
-
-    if args.help:
-        parser.print_help()
-        sys.exit(0)
 
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)

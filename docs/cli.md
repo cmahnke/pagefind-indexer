@@ -5,6 +5,7 @@ While most configuration lives in the YAML/JSON file, the script accepts the fol
 | Argument | Description | Default |
 | :--- | :--- | :--- |
 | `-c, --config` | **Required.** Path to the configuration file. | None |
+| `-h, --help` | Shows the help message and exits. | None |
 | `-s, --source` | Source directory (Overrides `files.source`). | Config value |
 | `-o, --output` | Output directory (Overrides `files.output`). | `<source>/pagefind` |
 | `-l, --limit` | **Max Wikidata API requests per second.** Prevents IP bans. | `1` |
